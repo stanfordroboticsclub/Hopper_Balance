@@ -23,12 +23,20 @@ char left_extend_idx = 2;
 char right_extend_idx = 3;
 
 float HEIGHT_POS = 0; //TODO: Set Height Position for leg extensions
-float lqr_gains[] = {-1.6864008e+00 -2.0663252e-16 -3.0060002e-01 -1.1180325e-02};
-
+float lqr_gains[] = {-1.6864008e+00, 0.0, -3.0060002e-01,  -1.1180325e-02};
+//[Angle in radians (about the wheels) from vert. , wheel angle (rad), angular vel. (rads/sec), angular vel. of wheels (rad/sec)]
 
 //Impedence Control
 float impedence_alpha = 2000;
 float impedence_beta = 2000;
+
+float get_wheel_vel(){
+  float left_vel = bus.Get(left_wheel_idx).Velocity();
+  float right_vel = bus.Get(right_wheel_idx).Velocity();
+
+  float output = 0.5 * (left_vel + right_vel);
+  return output;
+}
 
 float get_wheel_torque (float* imu_array){
   float op_sum = 0;
@@ -63,7 +71,8 @@ void set_motor_comms(float wheel_torque){
   motor_comm_arr[left_wheel_idx] = wheel_amps;
   motor_comm_arr[right_wheel_idx] = -1.0 * wheel_amps;
 
-  bus.CommandTorques(motor_comm_arr[0], motor_comm_arr[1], motor_comm_arr[2], motor_comm_arr[3]);
+  bus.CommandTorques(motor_comm_arr[0], motor_comm_arr[1], 
+                      motor_comm_arr[2], motor_comm_arr[3], C610Subbus::kOneToFourBlinks);
 }
 
 // i2c
@@ -138,8 +147,11 @@ void loop()
   Serial.print(", ");
   Serial.println(roll);
 
+  
+  float angular_vel = gx; 
+  float wheel_vel = get_wheel_vel();
+  float imu_array[] = {pitch, 0.0, angular_vel, wheel_vel};
 
-  float imu_array[] = {roll, pitch, heading, 0.0};
   float wheel_torque = get_wheel_torque(imu_array);
   set_motor_comms(wheel_torque);
   
