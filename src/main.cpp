@@ -136,7 +136,7 @@ void loop()
   float gx = g.gyro.x;
   float gy = g.gyro.y;
   float gz = g.gyro.z;
-  filter.updateIMU(gx * gyroScale, gy * gyroScale, gz * gyroScale, ax, ay, az);
+  filter.updateIMU(gy * gyroScale, gx * gyroScale, - 1.0 * gz * gyroScale, ay, ax, -1.0 * az);
   // Serial.println();
   float roll = filter.getRoll();
   float pitch = filter.getPitch();
