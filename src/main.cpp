@@ -4,6 +4,7 @@
 #include <Adafruit_Sensor.h>  // not used in this demo but required!
 #include <MahonyAHRS.h>
 #include <C610Bus.h>
+#include <DFRobot_BMI160.h>
 
 /*
   NOTES: 
@@ -23,18 +24,27 @@ char left_extend_idx = 2;
 char right_extend_idx = 3;
 
 float HEIGHT_POS = 0; //TODO: Set Height Position for leg extensions
-float lqr_gains[] = {-1.6864008e+00, 0.0, -3.0060002e-01,  -1.1180325e-02};
+float lqr_gains[] = {-1.3963862e+01, 0.0, -2.5197718e+00, -9.9999182e-02}; //{-64.41729, -0.10000086, -11.630441, -0.4833244};
+//{-1.3963862e+01, 0.0, -2.5197718e+00, -9.9999182e-02}; //{-1.6864008e+00, 0.0, -3.0060002e-01,  -1.1180325e-02};
+
 //[Angle in radians (about the wheels) from vert. , wheel angle (rad), angular vel. (rads/sec), angular vel. of wheels (rad/sec)]
 
 //Impedence Control
-float impedence_alpha = 2000;
+float impedence_alpha = 50000;
 float impedence_beta = 2000;
+
+
+DFRobot_BMI160 bmi160;
+const int8_t i2c_addr = 0x69;
+
+const float SAMPLE_RATE = 500;
+unsigned long prev_sensor_time = micros();
 
 float get_wheel_vel(){
   float left_vel = bus.Get(left_wheel_idx).Velocity();
   float right_vel = bus.Get(right_wheel_idx).Velocity();
 
-  float output = 0.5 * (left_vel + right_vel);
+  float output = 0.5 * (left_vel - right_vel);
   return output;
 }
 
@@ -61,7 +71,8 @@ void set_motor_comms(float wheel_torque){
   float torque_to_amps = 4.0;
   float amps_to_millis = 1000;
 
-  float wheel_amps = torque_to_amps * amps_to_millis;
+  float wheel_amps = wheel_torque * torque_to_amps * amps_to_millis;
+  wheel_amps = constrain(wheel_amps, -7000, 7000);
 
   float motor_comm_arr[4];
 
@@ -78,82 +89,89 @@ void set_motor_comms(float wheel_torque){
 // i2c
 Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
 Mahony filter;
-void setupSensor()
-{
-  // 1.) Set the accelerometer range
-  // lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_2G);
-  //lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_4G);
-  lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_8G);
-  //lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_16G);
-  // 2.) Set the magnetometer sensitivity
-  lsm.setupMag(lsm.LSM9DS1_MAGGAIN_4GAUSS);
-  //lsm.setupMag(lsm.LSM9DS1_MAGGAIN_8GAUSS);
-  //lsm.setupMag(lsm.LSM9DS1_MAGGAIN_12GAUSS);
-  //lsm.setupMag(lsm.LSM9DS1_MAGGAIN_16GAUSS);
-  // 3.) Setup the gyroscope
-  // lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS);
-  //lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_500DPS);
-  lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_2000DPS);
+
+float angle_estimate = 0.0;
+
+float complimentaryFilter(float prev_angle, float dt, float accelGyro[6]){
+  float y_gyro = accelGyro[1] * dt;
+  float accel_angle = -atan2(accelGyro[5], -accelGyro[3]) * (180 / 3.14);
+
+  float alpha = 0.99;
+
+  float new_angle = alpha * (prev_angle + y_gyro) + (1.0 - alpha) * (accel_angle);
+
+  Serial.print("accel_pitch: ");
+  Serial.println(accel_angle);
+
+  return new_angle;
 }
 
 void setup()
 {
   Serial.begin(115200);
-  while (!Serial) {
-    delay(1); // will pause Zero, Leonardo, etc until serial console opens
+
+  if (bmi160.softReset() != BMI160_OK){
+    Serial.println("reset false");
+    while(1);
   }
-  Serial.println("LSM9DS1 data read demo");
-  // Try to initialise and warn if we couldn’t detect the chip
-  if (!lsm.begin())
-  {
-    Serial.println("Oops ... unable to initialize the LSM9DS1. Check your wiring!");
-    while (1);
-  }
-  Serial.println("Found LSM9DS1 9DOF");
+
   // helper to just set the default scaling we want, see above!
-  setupSensor();
+  if (bmi160.I2cInit(i2c_addr) != BMI160_OK){
+    Serial.println("init false");
+    while(1);
+  }
+
   filter.begin(500.0);
 }
 void loop()
 {
-  lsm.read();  /* ask it to read in the data */
-  /* Get a new sensor event */
-  sensors_event_t a, m, g, temp;
-  lsm.getEvent(&a, &m, &g, &temp);
-  // Serial.print(“Accel X: “); Serial.print(a.acceleration.x); Serial.print(” m/s^2");
-  // Serial.print(“\tY: “); Serial.print(a.acceleration.y);     Serial.print(” m/s^2 “);
-  // Serial.print(“\tZ: “); Serial.print(a.acceleration.z);     Serial.println(” m/s^2 “);
-  float ax = a.acceleration.x;
-  float ay = a.acceleration.y;
-  float az = a.acceleration.z;
-  // Serial.print(“Mag X: “); Serial.print(m.magnetic.x);   Serial.print(” uT”);
-  // Serial.print(“\tY: “); Serial.print(m.magnetic.y);     Serial.print(” uT”);
-  // Serial.print(“\tZ: “); Serial.print(m.magnetic.z);     Serial.println(” uT”);
-  // Serial.print(“Gyro X: “); Serial.print(g.gyro.x);   Serial.print(” rad/s”);
-  // Serial.print(“\tY: “); Serial.print(g.gyro.y);      Serial.print(” rad/s”);
-  // Serial.print(“\tZ: “); Serial.print(g.gyro.z);      Serial.println(” rad/s”);
-  float gyroScale = 180.0 / 3.14159;
-  float gx = g.gyro.x;
-  float gy = g.gyro.y;
-  float gz = g.gyro.z;
-  filter.updateIMU(gy * gyroScale, gx * gyroScale, - 1.0 * gz * gyroScale, ay, ax, -1.0 * az);
-  // Serial.println();
-  float roll = filter.getRoll();
-  float pitch = filter.getPitch();
-  float heading = filter.getYaw();
-  Serial.print(heading);
-  Serial.print(", ");
-  Serial.print(pitch);
-  Serial.print(", ");
-  Serial.println(roll);
+  unsigned long start_time = millis();
+  int i = 0;
+  int rslt;
+  int16_t accelGyro[6]={0}; 
+  
+  //get both accel and gyro data from bmi160
+  //parameter accelGyro is the pointer to store the data
+  
+  unsigned long gyro_start = millis();
+
+  unsigned long sensor_time = micros();
+  rslt = bmi160.getAccelGyroData(accelGyro);
+  if (rslt != 0){
+    Serial.println("Cannot read IMU data from BMI160");
+    return;
+  }
+  Serial.print("imu reading time: ");
+  Serial.println(millis() - gyro_start);
+
+  float gx = accelGyro[0] / 16.384; //Down
+  float gy = accelGyro[1] / 16.384; //Away from USB
+  float gz = accelGyro[2] / 16.384; //Behind IMU board
+  
+  float ax = accelGyro[3] / 16384.0;
+  float ay = accelGyro[4] / 16384.0;
+  float az = accelGyro[5] / 16384.0;
+
+  float newGyroArray[] = {gx, gy, gz, ax, ay, az};
+
+  float dt = (sensor_time - prev_sensor_time) / 1e6;
+
+  angle_estimate = complimentaryFilter(angle_estimate, dt, newGyroArray);
+  prev_sensor_time = sensor_time; 
 
   
-  float angular_vel = gx; 
+  float angular_vel = gy * (3.14 / 180); 
   float wheel_vel = get_wheel_vel();
-  float imu_array[] = {pitch, 0.0, angular_vel, wheel_vel};
+  float radian_est = angle_estimate * (3.14/ 180);
+
+  float imu_array[] = {-1.0 * radian_est, 0.0, -1.0 * angular_vel, -1.0 * wheel_vel};
 
   float wheel_torque = get_wheel_torque(imu_array);
   set_motor_comms(wheel_torque);
   
-  delay(2);
+  Serial.print(angle_estimate);
+
+  Serial.print(" torque: ");
+  Serial.println(wheel_torque);
+  //delay(2);
 }
