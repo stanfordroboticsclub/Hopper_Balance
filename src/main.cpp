@@ -9,4 +9,7 @@ void setup(){
 
 void loop(){
   robot.control_step();
+
+  Serial.print("est_pitch: ");
+  Serial.println(robot.pitch_angle);
 }

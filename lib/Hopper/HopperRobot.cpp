@@ -95,7 +95,7 @@ void HopperRobot::get_imu_data(){
 
     float div_factors[2] = {gyro_factor, accel_factor};
     for(int i = 0; i < 6; ++i)
-        accel_gyro_values[0] = accelGyro[0] / div_factors[i / 3];
+        accel_gyro_values[i] = accelGyro[i] / div_factors[i / 3];
     
     prev_sensor_time = curr_measure_time;
 }

@@ -9,7 +9,7 @@ class HopperRobot {
         DFRobot_BMI160 bmi160;
         const int8_t i2c_addr = 0x69;
 
-        int16_t accelGyro[6]={0}; 
+         
         float accel_factor = 16384.0;
         float gyro_factor = 16.384;
         float deg_to_radians = 3.14 / 180;
@@ -31,6 +31,7 @@ class HopperRobot {
         float complimentaryFilter();
 
     public:
+        int16_t accelGyro[6]={0};
         float lqr_gains[4] = {-1.3963862e+01, 0.0, 
                                 -2.5197718e+00, -9.9999182e-02};
         
