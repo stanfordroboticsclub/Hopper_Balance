@@ -11,5 +11,5 @@ void loop(){
   robot.control_step();
 
   Serial.print("est_pitch: ");
-  Serial.println(robot.pitch_angle);
+  Serial.println(robot.get_pitch(true));
 }
