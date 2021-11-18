@@ -28,6 +28,12 @@ float HopperRobot::get_wheel_vel(){
     return output;
 }
 
+float HopperRobot::get_extension_position(int legIndex){
+    C610 esc = bus.Get(legIndex);
+    float motor_pos = esc.Position();
+    return motor_pos;
+}
+
 float HopperRobot::get_wheel_torque(float* imu_array){
     float op_sum = 0;
     int lqr_len = sizeof(_lqr_gains) / sizeof(float);
@@ -39,11 +45,26 @@ float HopperRobot::get_wheel_torque(float* imu_array){
 }
 
 float HopperRobot::get_impedence_command(int motor_idx, float desired_pos){
-    C610 esc = bus.Get(motor_idx);
-    float motor_pos = esc.Position();
-    float motor_vec = esc.Velocity();
+    //desired_pos -= _homed_positions[motor_idx - kLegIdxs[0]];
 
-    return _impedence_alpha * (desired_pos - motor_pos) - _impedence_beta * motor_vec;
+    float motor_pos = bus.Get(motor_idx).Position();
+    float motor_vel = bus.Get(motor_idx).Velocity();
+
+    Serial.print("Position: ");
+    Serial.println(motor_pos);
+    Serial.print("Velocity: ");
+    Serial.println(motor_vel);
+
+    return _impedence_alpha * (desired_pos - motor_pos) - _impedence_beta * motor_vel;
+}
+
+float HopperRobot::get_impedence_command(int motor_idx, float desired_pos, float max_current){
+    float motor_pos = bus.Get(motor_idx).Position();
+    float motor_vec = bus.Get(motor_idx).Velocity();
+
+    float current = _impedence_alpha * (desired_pos - motor_pos) - _impedence_beta * motor_vec;
+
+    return max(kHomingCurrentThreshold, current);
 }
 
 void HopperRobot::set_motor_comms(float wheel_torque){
@@ -101,6 +122,67 @@ void HopperRobot::get_imu_data(){
 }
 
 //Public Methods
+
+void HopperRobot::test_impedence_hold(float position){
+    bus.PollCAN();
+
+    int32_t motor_torqs[2];
+
+    for (int i = 0; i < 2; i++){
+        float torq_comm = get_impedence_command(kLegIdxs[i], position);
+        int32_t int_torq_com = (int32_t)torq_comm;
+        motor_torqs[i] = int_torq_com;
+    }
+
+    bus.CommandTorques(0, 0, motor_torqs[0], motor_torqs[1], C610Subbus::kOneToFourBlinks);
+}
+
+void HopperRobot::homing_sequence(){
+    bus.PollCAN();
+    float des_pos[] = {get_extension_position(kLegIdxs[0]), get_extension_position(kLegIdxs[1])};
+
+    while (true){
+        bus.PollCAN();
+        bool homing_done = true;
+        float motor_torques[] = {0.0, 0.0};
+
+        for (int i = 0; i < 2; i++){
+            if (!_homed_idxs[i]){
+                float torq_command = get_impedence_command(kLegIdxs[i], des_pos[i]);
+
+                if (abs(torq_command) > kHomingCurrentThreshold){
+                    _homed_idxs[i] = true;
+                    _homed_positions[i] = get_extension_position(kLegIdxs[i]);
+
+                    Serial.print("homed index ");
+                    Serial.println(i);
+                    Serial.println(torq_command);
+                    Serial.println(_homed_positions[i]);
+                }
+                else{
+                    motor_torques[i] = torq_command;
+                    des_pos[i] += kLegDirections[i] * kHomingVelocity;
+                }
+
+                homing_done = homing_done && _homed_idxs[i];
+
+                Serial.println("--------------");
+                Serial.print("Motor: ");
+                Serial.println(i);
+                Serial.print("current: ");
+                Serial.println(torq_command);
+            }
+        }
+
+        //if (homing_done) break;
+
+        bus.CommandTorques(0, 0, 
+                motor_torques[0], motor_torques[1], C610Subbus::kOneToFourBlinks);
+
+
+    }
+}
+
 float HopperRobot::get_pitch(bool in_degrees){
     if (in_degrees)
         return _pitch_angle;

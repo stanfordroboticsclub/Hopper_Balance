@@ -5,11 +5,12 @@
 HopperRobot robot;
 void setup(){
   Serial.begin(115200);
+  robot.homing_sequence();
 }
 
 void loop(){
-  robot.control_step();
+  //robot.control_step();
+  //robot.test_impedence_hold(0.0);
 
-  Serial.print("est_pitch: ");
-  Serial.println(robot.get_pitch(true));
+  Serial.println("------------");
 }
