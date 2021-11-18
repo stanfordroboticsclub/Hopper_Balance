@@ -1,0 +1,12 @@
+[submodule "lib/DJIC610Controller"]
+	path = lib/DJIC610Controller
+	url = git@github.com:stanfordroboticsclub/DJIC610Controller.git
+[submodule "lib/DFRobot_BMI160"]
+	path = lib/DFRobot_BMI160
+	url = git@github.com:DFRobot/DFRobot_BMI160.git
+[submodule "lib/MahonyAHRS"]
+	path = lib/MahonyAHRS
+	url = git@github.com:PaulStoffregen/MahonyAHRS.git
+[submodule "lib/EmotiBit_BMI160"]
+	path = lib/EmotiBit_BMI160
+	url = git@github.com:EmotiBit/EmotiBit_BMI160.git
