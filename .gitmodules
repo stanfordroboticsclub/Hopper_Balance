@@ -3,7 +3,7 @@
 	url = git@github.com:stanfordroboticsclub/DJIC610Controller.git
 [submodule "lib/DFRobot_BMI160"]
 	path = lib/DFRobot_BMI160
-	url = git@github.com:DFRobot/DFRobot_BMI160.git
+	url = git@github.com:stanfordroboticsclub/DFRobot_BMI160.git
 [submodule "lib/MahonyAHRS"]
 	path = lib/MahonyAHRS
 	url = git@github.com:PaulStoffregen/MahonyAHRS.git
