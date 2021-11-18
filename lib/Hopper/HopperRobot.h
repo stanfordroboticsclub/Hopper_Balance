@@ -21,6 +21,9 @@ class HopperRobot {
         const char kLeftExtendIdx = 2;
         const char kRightExtendIdx = 3;
 
+        // Max current
+        float _max_current = 6000;
+
         //Homing variables
         bool _homed_idxs[2] = {false, false};
         const int kLegIdxs[2] = {kLeftExtendIdx, kRightExtendIdx};
@@ -28,8 +31,8 @@ class HopperRobot {
         const float kLegDirections[2] = {1, -1};
         float _homed_positions[2] = {0.0, 0.0};
 
-        const float kHomingVelocity = 0.0001;
-        const float kHomingCurrentThreshold = 30000; //5000;
+        const float kHomingVelocity = 0.0015;
+        const float kHomingCurrentThreshold = 5000;
 
         float _height_pos = 0;
 
@@ -49,8 +52,6 @@ class HopperRobot {
         float get_wheel_torque (float* imu_array);
         float get_impedence_command(int motor_idx, float desired_pos);
 
-        float get_impedence_command(int motor_idx, float desired_pos, float max_current);
-
         void set_motor_comms(float wheel_torque);
         float complimentaryFilter();
 
@@ -58,8 +59,8 @@ class HopperRobot {
         float accel_gyro_values[6] = {0};
 
         //Impedence Gains for Leg Motors
-        float _impedence_alpha = 0; //50000;
-        float _impedence_beta = 2000;
+        float _impedence_stiffness = 50000;
+        float _impedence_damping = 1000;
 
         void test_impedence_hold(float position);
 
@@ -67,6 +68,7 @@ class HopperRobot {
 
         float get_pitch(bool in_degrees);
         void control_step();
+        void PollCAN();
 
         HopperRobot();
         ~HopperRobot();

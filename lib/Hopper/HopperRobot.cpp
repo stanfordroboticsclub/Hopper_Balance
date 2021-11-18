@@ -45,26 +45,17 @@ float HopperRobot::get_wheel_torque(float* imu_array){
 }
 
 float HopperRobot::get_impedence_command(int motor_idx, float desired_pos){
-    //desired_pos -= _homed_positions[motor_idx - kLegIdxs[0]];
-
-    float motor_pos = bus.Get(motor_idx).Position();
+    float motor_pos = bus.Get(motor_idx).Position() - _homed_positions[motor_idx - kLegIdxs[0]];
     float motor_vel = bus.Get(motor_idx).Velocity();
 
-    Serial.print("Position: ");
-    Serial.println(motor_pos);
-    Serial.print("Velocity: ");
-    Serial.println(motor_vel);
+    // Serial.print("Position: ");
+    // Serial.println(motor_pos);
+    // Serial.print("Velocity: ");
+    // Serial.println(motor_vel);
 
-    return _impedence_alpha * (desired_pos - motor_pos) - _impedence_beta * motor_vel;
-}
-
-float HopperRobot::get_impedence_command(int motor_idx, float desired_pos, float max_current){
-    float motor_pos = bus.Get(motor_idx).Position();
-    float motor_vec = bus.Get(motor_idx).Velocity();
-
-    float current = _impedence_alpha * (desired_pos - motor_pos) - _impedence_beta * motor_vec;
-
-    return max(kHomingCurrentThreshold, current);
+    float command = _impedence_stiffness * (desired_pos - motor_pos) - _impedence_damping * motor_vel;
+    command = constrain(command, -_max_current, _max_current);
+    return command;
 }
 
 void HopperRobot::set_motor_comms(float wheel_torque){
@@ -79,8 +70,17 @@ void HopperRobot::set_motor_comms(float wheel_torque){
   
     motor_comm_arr[kRightExtendIdx] = get_impedence_command(kRightExtendIdx, _height_pos);
     motor_comm_arr[kLeftExtendIdx] = get_impedence_command(kLeftExtendIdx, _height_pos);
-    motor_comm_arr[kLeftWheelIdx] = wheel_amps;
-    motor_comm_arr[kRightWheelIdx] = -1.0 * wheel_amps;
+    motor_comm_arr[kLeftWheelIdx] = 0;//wheel_amps;
+    motor_comm_arr[kRightWheelIdx] = 0;//-1.0 * wheel_amps;
+
+    Serial.print(motor_comm_arr[0]);
+    Serial.print(" ");
+    Serial.print(motor_comm_arr[1]);
+    Serial.print(" ");
+    Serial.print(motor_comm_arr[2]);
+    Serial.print(" ");
+    Serial.print(motor_comm_arr[3]);
+    Serial.println();
 
     bus.CommandTorques(motor_comm_arr[0], motor_comm_arr[1], 
                         motor_comm_arr[2], motor_comm_arr[3], C610Subbus::kOneToFourBlinks);
@@ -122,64 +122,61 @@ void HopperRobot::get_imu_data(){
 }
 
 //Public Methods
-
-void HopperRobot::test_impedence_hold(float position){
-    bus.PollCAN();
-
-    int32_t motor_torqs[2];
-
-    for (int i = 0; i < 2; i++){
-        float torq_comm = get_impedence_command(kLegIdxs[i], position);
-        int32_t int_torq_com = (int32_t)torq_comm;
-        motor_torqs[i] = int_torq_com;
-    }
-
-    bus.CommandTorques(0, 0, motor_torqs[0], motor_torqs[1], C610Subbus::kOneToFourBlinks);
-}
-
 void HopperRobot::homing_sequence(){
     bus.PollCAN();
     float des_pos[] = {get_extension_position(kLegIdxs[0]), get_extension_position(kLegIdxs[1])};
 
+    long last_print = 0;
+    long last_command = micros();
     while (true){
         bus.PollCAN();
         bool homing_done = true;
         float motor_torques[] = {0.0, 0.0};
 
-        for (int i = 0; i < 2; i++){
-            if (!_homed_idxs[i]){
-                float torq_command = get_impedence_command(kLegIdxs[i], des_pos[i]);
+        if(micros() - last_command > 5000) {
+          for (int i = 0; i < 2; i++){
+              if (!_homed_idxs[i]){
+                  float torq_command = get_impedence_command(kLegIdxs[i], des_pos[i]);
 
-                if (abs(torq_command) > kHomingCurrentThreshold){
-                    _homed_idxs[i] = true;
-                    _homed_positions[i] = get_extension_position(kLegIdxs[i]);
+                  if (abs(torq_command) > kHomingCurrentThreshold){
+                      _homed_idxs[i] = true;
+                      _homed_positions[i] = get_extension_position(kLegIdxs[i]);
 
-                    Serial.print("homed index ");
-                    Serial.println(i);
-                    Serial.println(torq_command);
-                    Serial.println(_homed_positions[i]);
-                }
-                else{
-                    motor_torques[i] = torq_command;
-                    des_pos[i] += kLegDirections[i] * kHomingVelocity;
-                }
+                      Serial.print("homed index ");
+                      Serial.println(i);
+                      Serial.println(torq_command);
+                      Serial.println(_homed_positions[i]);
+                  }
+                  else{
+                      motor_torques[i] = torq_command;
+                      des_pos[i] += kLegDirections[i] * kHomingVelocity;
+                  }
 
-                homing_done = homing_done && _homed_idxs[i];
+                  homing_done = homing_done && _homed_idxs[i];
 
-                Serial.println("--------------");
-                Serial.print("Motor: ");
-                Serial.println(i);
-                Serial.print("current: ");
-                Serial.println(torq_command);
+                  // Serial.println("--------------");
+                  // Serial.print("Motor: ");
+                  // Serial.println(i);
+                  // Serial.print("current: ");
+                  // Serial.println(torq_command);
+              }
             }
-        }
 
-        //if (homing_done) break;
+          if (homing_done) break;
 
-        bus.CommandTorques(0, 0, 
-                motor_torques[0], motor_torques[1], C610Subbus::kOneToFourBlinks);
+          // Serial.print(motor_torques[0]);
+          // Serial.print(" ");
+          // Serial.print(motor_torques[1]);
+          // Serial.println();
 
+          // Serial.print("dt: ");
+          // Serial.println(micros() - last_print);
+          last_print = micros();
 
+          bus.CommandTorques(0, 0, 
+                  motor_torques[0], motor_torques[1], C610Subbus::kOneToFourBlinks);
+          last_command = micros();
+      }
     }
 }
 
@@ -201,4 +198,8 @@ void HopperRobot::control_step(){
     float wheel_torque = get_wheel_torque(imu_array);
 
     set_motor_comms(wheel_torque);
+}
+
+void HopperRobot::PollCAN() {
+  bus.PollCAN();
 }
