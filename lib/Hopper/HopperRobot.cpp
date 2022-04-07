@@ -20,6 +20,14 @@ HopperRobot::~HopperRobot(){
 }
 
 //Private Methods
+float HopperRobot::get_wheel_pos(){
+    float left_pos = bus.Get(kLeftWheelIdx).Position() - _wheel_offsets[kLeftWheelIdx];
+    float right_pos = bus.Get(kRightWheelIdx).Position() - _wheel_offsets[kRightWheelIdx];
+
+    float output = 0.5 * (left_pos - right_pos);
+    return output;
+}
+
 float HopperRobot::get_wheel_vel(){
     float left_vel = bus.Get(kLeftWheelIdx).Velocity();
     float right_vel = bus.Get(kRightWheelIdx).Velocity();
@@ -58,29 +66,28 @@ float HopperRobot::get_impedence_command(int motor_idx, float desired_pos){
     return command;
 }
 
-void HopperRobot::set_motor_comms(float wheel_torque){
+void HopperRobot::set_motor_comms(float left_leg_torque, float right_leg_torque, float wheel_torque){
     //Calculate and send motor commands based on a specified wheel torque
-    float torque_to_amps = 4.0;
-    float amps_to_millis = 1000;
 
     float wheel_amps = wheel_torque * kTorqueToAmps * kAmpsToMillis;
     wheel_amps = constrain(wheel_amps, -7000, 7000);
 
     float motor_comm_arr[4];
   
-    motor_comm_arr[kRightExtendIdx] = get_impedence_command(kRightExtendIdx, _height_pos);
-    motor_comm_arr[kLeftExtendIdx] = get_impedence_command(kLeftExtendIdx, _height_pos);
-    motor_comm_arr[kLeftWheelIdx] = 0;//wheel_amps;
-    motor_comm_arr[kRightWheelIdx] = 0;//-1.0 * wheel_amps;
+    motor_comm_arr[kRightExtendIdx] = right_leg_torque;
+    motor_comm_arr[kLeftExtendIdx] = left_leg_torque;
 
-    Serial.print(motor_comm_arr[0]);
-    Serial.print(" ");
-    Serial.print(motor_comm_arr[1]);
-    Serial.print(" ");
-    Serial.print(motor_comm_arr[2]);
-    Serial.print(" ");
-    Serial.print(motor_comm_arr[3]);
-    Serial.println();
+    motor_comm_arr[kLeftWheelIdx] = wheel_amps;
+    motor_comm_arr[kRightWheelIdx] = -1.0 * wheel_amps;
+
+    // Serial.print(motor_comm_arr[0]);
+    // Serial.print(" ");
+    // Serial.print(motor_comm_arr[1]);
+    // Serial.print(" ");
+    // Serial.print(motor_comm_arr[2]);
+    // Serial.print(" ");
+    // Serial.print(motor_comm_arr[3]);
+    // Serial.println();
 
     bus.CommandTorques(motor_comm_arr[0], motor_comm_arr[1], 
                         motor_comm_arr[2], motor_comm_arr[3], C610Subbus::kOneToFourBlinks);
@@ -100,6 +107,7 @@ float HopperRobot::complimentaryFilter(){
     */
 
     _pitch_angle = new_angle;
+    //Serial.println(_pitch_angle);
 
     return new_angle;
 }
@@ -121,12 +129,26 @@ void HopperRobot::get_imu_data(){
     _prev_sensor_time = curr_measure_time;
 }
 
+bool HopperRobot::feet_on_ground() {
+    return _foot_on_ground[0] && _foot_on_ground[1];
+}
+
+void HopperRobot::transition_to_idle() {
+    state = IDLE;
+}
+
+void HopperRobot::transition_to_balancing() {
+    state = BALANCING;
+    _wheel_offsets[kLeftWheelIdx] = bus.Get(kLeftWheelIdx).Position();
+    _wheel_offsets[kRightWheelIdx] = bus.Get(kRightWheelIdx).Position();
+}
+
 //Public Methods
 void HopperRobot::homing_sequence(){
     bus.PollCAN();
     float des_pos[] = {get_extension_position(kLegIdxs[0]), get_extension_position(kLegIdxs[1])};
 
-    long last_print = 0;
+    // long last_print = 0;
     long last_command = micros();
     while (true){
         bus.PollCAN();
@@ -171,13 +193,14 @@ void HopperRobot::homing_sequence(){
 
           // Serial.print("dt: ");
           // Serial.println(micros() - last_print);
-          last_print = micros();
+        //   last_print = micros();
 
           bus.CommandTorques(0, 0, 
                   motor_torques[0], motor_torques[1], C610Subbus::kOneToFourBlinks);
           last_command = micros();
       }
     }
+    digitalWrite(13, LOW);
 }
 
 float HopperRobot::get_pitch(bool in_degrees){
@@ -191,13 +214,32 @@ void HopperRobot::control_step(){
     complimentaryFilter();
 
     float angular_vel = accel_gyro_values[1] * kDegToRadians;
+    float wheel_pos = get_wheel_pos();
     float wheel_vel = get_wheel_vel();
     float radian_est = get_pitch(false);
 
-    float imu_array[] = {-1.0 * radian_est, 0.0, -1.0 * angular_vel, -1.0 * wheel_vel};
-    float wheel_torque = get_wheel_torque(imu_array);
+    float imu_array[] = {-1.0 * radian_est - 0.06, -1.0 * wheel_pos, -1.0 * angular_vel, -1.0 * wheel_vel};
+    float wheel_torque = 0;
 
-    set_motor_comms(wheel_torque);
+    float right_leg_torque = get_impedence_command(kRightExtendIdx, -_height_pos * kLegDirections[kRightExtendIdx - kLegIdxs[0]]);
+    float left_leg_torque = get_impedence_command(kLeftExtendIdx, -_height_pos * kLegDirections[kLeftExtendIdx - kLegIdxs[0]]);
+
+    _foot_on_ground[0] = left_leg_torque * kLegDirections[0] < -100;
+    _foot_on_ground[1] = right_leg_torque * kLegDirections[1] < -100;
+
+    if (state == IDLE) {
+        if (feet_on_ground()) {
+            transition_to_balancing();
+        }
+    } else if (state == BALANCING){
+        if (feet_on_ground()) {
+            wheel_torque = get_wheel_torque(imu_array);
+        } else {
+            transition_to_idle();
+        }   
+    }
+
+    set_motor_comms(left_leg_torque, right_leg_torque, wheel_torque);
 }
 
 void HopperRobot::PollCAN() {
