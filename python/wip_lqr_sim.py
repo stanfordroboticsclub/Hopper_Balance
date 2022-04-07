@@ -9,9 +9,9 @@ Q = np.array([[5, 0, 0, 0],
               [0, 0.5, 0, 0],
               [0, 0, 1, 0],
               [0, 0, 0, 0.025]])
-R = 1*np.eye(1)
+R = 40*np.eye(1)
 
-T = 500
+T = 1000
 
 env = WIPEnv()
 goal_state = np.array([0.0, 0.0, 0.0, 0.0])
@@ -30,19 +30,19 @@ time.sleep(1)
 data = np.zeros((T, 3))
 dt = env.dt
 
-goal_state = np.array([0.0, 0.0, 0.0, 16.0])
+goal_state = np.array([0.2, 0.0, 0.0, 0.0])
 start = time.monotonic()
 for t in range(T):
     u = - L @ (state - goal_state)
     state, reward, done, _ = env.step(u)
     data[t] = [t * dt, state[3]*env.RADIUS_WHEEL, state[0]]
     env.render()
-    if t == 200:
-        goal_state = np.array([0.0, 0.0, 0.0, 0.0])
-    if t == 250:
-        goal_state = np.array([0.0, 0.0, 0.0, -16.0])
-    if t == 450:
-        goal_state = np.array([0.0, 0.0, 0.0, 0.0])
+    # if t == 200:
+    #     goal_state = np.array([0.0, 0.0, 0.0, 0.0])
+    # if t == 250:
+    #     goal_state = np.array([0.0, 0.0, 0.0, -16.0])
+    # if t == 450:
+    #     goal_state = np.array([0.0, 0.0, 0.0, 0.0])
 end = time.monotonic()
 print(end-start)
 env.close()

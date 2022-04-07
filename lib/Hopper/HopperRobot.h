@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <C610Bus.h>
 #include <DFRobot_BMI160.h>
+#include "lpfcoefs.h"
 
 #define IDLE 0
 #define BALANCING 1
@@ -45,7 +46,7 @@ class HopperRobot {
         float _dt; //The time difference between the current measurement and the previous one in seconds
         int16_t _accel_gyro[6]={0};
 
-        float _lqr_gains[4] = {-36.618958, -0.7070806, -5.4262147, -0.37421146};//{-2.2042316e+01, -1.5420982e-14, -3.3492646e+00, -1.5811585e-01};
+        float _lqr_gains[4] = {-6.029133,   -0.11180384, -0.88575554, -0.05971062};//{-36.618958, -0.7070806, -5.4262147, -0.37421146};
         
 
         float _pitch_angle = 0; //Last measured pitch angle.  Updated by calls to complimentaryFilter
@@ -63,6 +64,8 @@ class HopperRobot {
         bool feet_on_ground();
         void transition_to_idle();
         void transition_to_balancing();
+
+        float filter(float signal);
 
     public:
 

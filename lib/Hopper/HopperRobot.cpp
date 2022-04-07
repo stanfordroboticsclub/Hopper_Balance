@@ -42,14 +42,14 @@ float HopperRobot::get_extension_position(int legIndex){
     return motor_pos;
 }
 
-float HopperRobot::get_wheel_torque(float* imu_array){
+float HopperRobot::get_wheel_torque(float* robot_state){
     float op_sum = 0;
     int lqr_len = sizeof(_lqr_gains) / sizeof(float);
     
     for (int i = 0; i < lqr_len; i++)
-        op_sum += _lqr_gains[i] * imu_array[i];
+        op_sum += _lqr_gains[i] * robot_state[i];
     
-    return op_sum;
+    return -op_sum;
 }
 
 float HopperRobot::get_impedence_command(int motor_idx, float desired_pos){
@@ -71,6 +71,7 @@ void HopperRobot::set_motor_comms(float left_leg_torque, float right_leg_torque,
 
     float wheel_amps = wheel_torque * kTorqueToAmps * kAmpsToMillis;
     wheel_amps = constrain(wheel_amps, -7000, 7000);
+    // Serial.println(wheel_amps);
 
     float motor_comm_arr[4];
   
@@ -209,16 +210,53 @@ float HopperRobot::get_pitch(bool in_degrees){
     return _pitch_angle * kDegToRadians;
 }
 
+float HopperRobot::filter(float signal) {
+    static float imu_input_buffer[NL];
+    static int i = 0;
+
+    static float imu_output_buffer[DL - 1];
+    static int j = 0;
+
+    imu_input_buffer[i] = signal;
+
+    float filtered = 0.0;
+    for (int n = 0; n < NL; n++) {
+        filtered += NUM[n] * imu_input_buffer[i];
+        i--;
+        if (i < 0) i = NL - 1;
+    }
+    for (int n = 1; n < DL; n++) {
+        filtered -= DEN[n] * imu_output_buffer[j];
+        j--;
+        if (j < 0) j = DL - 2;
+    }
+
+    i++;
+    if (i == NL) i = 0;
+
+    j++;
+    if (j == DL - 1) j = 0;
+
+    imu_output_buffer[j] = filtered;
+    return filtered;
+}
+
 void HopperRobot::control_step(){
     get_imu_data();
     complimentaryFilter();
 
     float angular_vel = accel_gyro_values[1] * kDegToRadians;
+    float filtered_angular_vel = filter(angular_vel);
     float wheel_pos = get_wheel_pos();
     float wheel_vel = get_wheel_vel();
     float radian_est = get_pitch(false);
 
-    float imu_array[] = {-1.0 * radian_est - 0.06, -1.0 * wheel_pos, -1.0 * angular_vel, -1.0 * wheel_vel};
+    float robot_state[4] = {radian_est + 0.06, wheel_pos, filtered_angular_vel, wheel_vel};
+    for (int i = 0; i < 4; i++) {
+        Serial.print(100.0 * robot_state[i]);
+        Serial.print(' ');
+    }
+    Serial.println();
     float wheel_torque = 0;
 
     float right_leg_torque = get_impedence_command(kRightExtendIdx, -_height_pos * kLegDirections[kRightExtendIdx - kLegIdxs[0]]);
@@ -233,7 +271,7 @@ void HopperRobot::control_step(){
         }
     } else if (state == BALANCING){
         if (feet_on_ground()) {
-            wheel_torque = get_wheel_torque(imu_array);
+            wheel_torque = get_wheel_torque(robot_state);
         } else {
             transition_to_idle();
         }   

@@ -8,7 +8,7 @@ void setup(){
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
   Serial.begin(115200);
-  delay(5000);
+  while (!Serial) {}
   robot.homing_sequence();
   last_control_step = micros();
 }
@@ -21,7 +21,7 @@ void loop(){
     robot.control_step();
     // Serial.print("Timestamp (ms): ");
     // Serial.println(millis());
-    Serial.println(robot.get_pitch(false));
+    // Serial.println(robot.get_pitch(false));
     last_control_step = micros();
   }
 }
