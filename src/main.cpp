@@ -18,10 +18,10 @@ void loop(){
   // delay(100);
   robot.PollCAN();
   if(micros() - last_control_step > 2000) {
+    last_control_step = micros();
     robot.control_step();
     // Serial.print("Timestamp (ms): ");
-    // Serial.println(millis());
+    // Serial.println(micros() - last_control_step);
     // Serial.println(robot.get_pitch(false));
-    last_control_step = micros();
   }
 }

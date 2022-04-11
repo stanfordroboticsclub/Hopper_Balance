@@ -40,13 +40,13 @@ class HopperRobot {
         const float kHomingVelocity = 0.0015;
         const float kHomingCurrentThreshold = 5000;
 
-        float _height_pos = 0.3;
+        float _height_pos = 0.6;
 
         unsigned long _prev_sensor_time;
         float _dt; //The time difference between the current measurement and the previous one in seconds
         int16_t _accel_gyro[6]={0};
 
-        float _lqr_gains[4] = {-6.029133,   -0.11180384, -0.88575554, -0.05971062};//{-36.618958, -0.7070806, -5.4262147, -0.37421146};
+        float _lqr_gains[4] = {-6.029133,   -1.1180384, -0.88575554, -0.05971062};//{-36.618958, -0.7070806, -5.4262147, -0.37421146};
         
 
         float _pitch_angle = 0; //Last measured pitch angle.  Updated by calls to complimentaryFilter
