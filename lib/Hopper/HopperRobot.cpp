@@ -24,13 +24,13 @@ float HopperRobot::get_wheel_pos(){
     float left_pos = bus.Get(kLeftWheelIdx).Position() - _wheel_offsets[kLeftWheelIdx];
     float right_pos = bus.Get(kRightWheelIdx).Position() - _wheel_offsets[kRightWheelIdx];
 
-    float output = 0.5 * (left_pos - right_pos);
+    float output = 0.5 * (left_pos - right_pos) * kGearRatio;
     return output;
 }
 
 float HopperRobot::get_wheel_vel(){
-    float left_vel = bus.Get(kLeftWheelIdx).Velocity();
-    float right_vel = bus.Get(kRightWheelIdx).Velocity();
+    float left_vel = bus.Get(kLeftWheelIdx).Velocity() * kGearRatio;
+    float right_vel = bus.Get(kRightWheelIdx).Velocity() * kGearRatio;
 
     float output = 0.5 * (left_vel - right_vel);
     return output;
@@ -69,7 +69,7 @@ float HopperRobot::get_impedence_command(int motor_idx, float desired_pos){
 void HopperRobot::set_motor_comms(float left_leg_torque, float right_leg_torque, float wheel_torque){
     //Calculate and send motor commands based on a specified wheel torque
 
-    float wheel_amps = wheel_torque * kTorqueToAmps * kAmpsToMillis;
+    float wheel_amps = wheel_torque * kTorqueToAmps * kAmpsToMillis * kGearRatio;
     wheel_amps = constrain(wheel_amps, -7000, 7000);
     // Serial.println(wheel_amps);
 
@@ -250,8 +250,7 @@ void HopperRobot::control_step(){
     float wheel_pos = get_wheel_pos();
     float wheel_vel = get_wheel_vel();
     float radian_est = get_pitch(false);
-
-    float robot_state[4] = {radian_est + 0.06, wheel_pos, filtered_angular_vel, wheel_vel};
+    float robot_state[4] = {radian_est + kPitchOffset, wheel_pos, filtered_angular_vel, wheel_vel};
     for (int i = 0; i < 4; i++) {
         Serial.print(100.0 * robot_state[i]);
         Serial.print(' ');

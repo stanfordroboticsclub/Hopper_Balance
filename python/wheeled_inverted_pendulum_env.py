@@ -10,7 +10,7 @@ class WIPEnv():
     dt = 0.002
 
    
-    LENGTH_PENDULUM = 0.15 # (m)
+    LENGTH_PENDULUM = 0.20 # (m)
     MASS_PENDULUM = 0.888 # (kg) mass of pendulum
     MOI_PENDULUM = MASS_PENDULUM * 0.12**2 # (Nm) moment of intertia with respect to the pivot
     RADIUS_WHEEL = 0.0175 # (m)
@@ -162,7 +162,7 @@ def bound(x, m, M=None):
 
 @jit
 def dynamics(x, u):
-    LENGTH_PENDULUM = 0.15 # (m)
+    LENGTH_PENDULUM = 0.20 # (m)
     MASS_PENDULUM = 0.888 # (kg) mass of pendulum
     MOI_PENDULUM = MASS_PENDULUM * 0.12**2 # (Nm) moment of intertia with respect to the pivot
     RADIUS_WHEEL = 0.0175 # (m)

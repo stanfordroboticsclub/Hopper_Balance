@@ -19,6 +19,8 @@ class HopperRobot {
         const float kAccelFactor = 16384.0;
         const float kGyroFactor = 16.384;
         const float kDegToRadians = 3.14 / 180;
+        const float kGearRatio = 36.0;
+        const float kPitchOffset = 0.1;
 
         const unsigned char kLeftWheelIdx = 0;
         const unsigned char kRightWheelIdx = 1;
@@ -46,7 +48,8 @@ class HopperRobot {
         float _dt; //The time difference between the current measurement and the previous one in seconds
         int16_t _accel_gyro[6]={0};
 
-        float _lqr_gains[4] = {-6.029133,   -1.1180384, -0.88575554, -0.05971062};//{-36.618958, -0.7070806, -5.4262147, -0.37421146};
+        float _lqr_gains[4] = {-0.7955902,  -0.00295804, -0.11342549, -0.00412275};
+        //{-6.029133,   -0.11180384, -0.88575554, -0.05971062};//{-36.618958, -0.7070806, -5.4262147, -0.37421146};
         
 
         float _pitch_angle = 0; //Last measured pitch angle.  Updated by calls to complimentaryFilter
