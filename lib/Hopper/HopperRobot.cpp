@@ -70,8 +70,8 @@ void HopperRobot::set_motor_comms(float left_leg_torque, float right_leg_torque,
     //Calculate and send motor commands based on a specified wheel torque
 
     float wheel_amps = wheel_torque * kTorqueToAmps * kAmpsToMillis * kGearRatio;
-    wheel_amps = constrain(wheel_amps, -7000, 7000);
-    // Serial.println(wheel_amps);
+    wheel_amps = constrain(wheel_amps, -8000, 8000);
+    Serial.println(wheel_amps);
 
     float motor_comm_arr[4];
   
@@ -251,11 +251,11 @@ void HopperRobot::control_step(){
     float wheel_vel = get_wheel_vel();
     float radian_est = get_pitch(false);
     float robot_state[4] = {radian_est + kPitchOffset, wheel_pos, filtered_angular_vel, wheel_vel};
-    for (int i = 0; i < 4; i++) {
-        Serial.print(100.0 * robot_state[i]);
-        Serial.print(' ');
-    }
-    Serial.println();
+    // for (int i = 0; i < 4; i++) {
+    //     Serial.print(100.0 * robot_state[i]);
+    //     Serial.print(' ');
+    // }
+    // Serial.println();
     float wheel_torque = 0;
 
     float right_leg_torque = get_impedence_command(kRightExtendIdx, -_height_pos * kLegDirections[kRightExtendIdx - kLegIdxs[0]]);

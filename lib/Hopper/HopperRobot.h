@@ -48,8 +48,7 @@ class HopperRobot {
         float _dt; //The time difference between the current measurement and the previous one in seconds
         int16_t _accel_gyro[6]={0};
 
-        float _lqr_gains[4] = {-0.7955902,  -0.00295804, -0.11342549, -0.00412275};
-        //{-6.029133,   -0.11180384, -0.88575554, -0.05971062};//{-36.618958, -0.7070806, -5.4262147, -0.37421146};
+        const float _lqr_gains[4] = {-0.7563237,  -0.01118034, -0.08060046, -0.00765402};//{-0.8635379, -0.01118035, -0.09910495, -0.00684756};
         
 
         float _pitch_angle = 0; //Last measured pitch angle.  Updated by calls to complimentaryFilter
