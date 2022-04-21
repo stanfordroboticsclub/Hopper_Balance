@@ -48,13 +48,17 @@ class HopperRobot {
         float _dt; //The time difference between the current measurement and the previous one in seconds
         int16_t _accel_gyro[6]={0};
 
-        const float kLQRGains[4] = {-0.7563237,  -0.01118034, -0.08060046, -0.00765402};//{-0.8635379, -0.01118035, -0.09910495, -0.00684756};
+        const float kLQRGains[4] = {-0.7563237,  -0.01118034, -0.08060046, -0.00765402};
         const float kKpYaw = 0.005;
+        const float kKdYaw = 0.003;
         
 
         float _pitch_angle = 0; //Last measured pitch angle.  Updated by calls to complimentaryFilter
 
+        float _left_wheel_pos, _right_wheel_pos, _left_wheel_vel, _right_wheel_vel;
+
         void get_imu_data();
+        void read_wheel_sensors();
         float get_wheel_pos();
         float get_wheel_vel();
         float get_extension_position(int legIndex);

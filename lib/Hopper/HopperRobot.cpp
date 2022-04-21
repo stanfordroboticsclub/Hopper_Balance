@@ -20,19 +20,21 @@ HopperRobot::~HopperRobot(){
 }
 
 //Private Methods
-float HopperRobot::get_wheel_pos(){
-    float left_pos = kGearRatio * (bus.Get(kLeftWheelIdx).Position() - _wheel_offsets[kLeftWheelIdx]);
-    float right_pos = -kGearRatio * (bus.Get(kRightWheelIdx).Position() - _wheel_offsets[kRightWheelIdx]);
+void HopperRobot::read_wheel_sensors() {
+    _left_wheel_pos = kGearRatio * (bus.Get(kLeftWheelIdx).Position() - _wheel_offsets[kLeftWheelIdx]);
+    _right_wheel_pos = -kGearRatio * (bus.Get(kRightWheelIdx).Position() - _wheel_offsets[kRightWheelIdx]);
 
-    float output = 0.5 * (left_pos + right_pos);
+    _left_wheel_vel = kGearRatio * bus.Get(kLeftWheelIdx).Velocity();
+    _right_wheel_vel = -kGearRatio * bus.Get(kRightWheelIdx).Velocity();
+}
+
+float HopperRobot::get_wheel_pos(){
+    float output = 0.5 * (_left_wheel_pos + _right_wheel_pos);
     return output;
 }
 
 float HopperRobot::get_wheel_vel(){
-    float left_vel = kGearRatio * bus.Get(kLeftWheelIdx).Velocity();
-    float right_vel = -kGearRatio * bus.Get(kRightWheelIdx).Velocity();
-
-    float output = 0.5 * (left_vel + right_vel);
+    float output = 0.5 * (_left_wheel_vel + _right_wheel_vel);
     return output;
 }
 
@@ -53,10 +55,7 @@ float HopperRobot::get_balance_torque(float* robot_state){
 }
 
 float HopperRobot::get_yaw_torque() {
-    float left_pos = kGearRatio * (bus.Get(kLeftWheelIdx).Position() - _wheel_offsets[kLeftWheelIdx]);
-    float right_pos = -kGearRatio * (bus.Get(kRightWheelIdx).Position() - _wheel_offsets[kRightWheelIdx]);
-
-    return 0.5 * kKpYaw * (left_pos - right_pos);
+    return kKpYaw * 0.5 * (_left_wheel_pos - _right_wheel_pos) + kKdYaw * 0.5 * (_left_wheel_vel - _right_wheel_vel);
 }
 
 float HopperRobot::get_impedence_command(int motor_idx, float desired_pos){
@@ -253,6 +252,7 @@ float HopperRobot::filter(float signal) {
 void HopperRobot::control_step(){
     get_imu_data();
     complimentaryFilter();
+    read_wheel_sensors();
 
     float angular_vel = accel_gyro_values[1] * kDegToRadians;
     float filtered_angular_vel = filter(angular_vel);
