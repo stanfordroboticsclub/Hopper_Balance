@@ -281,7 +281,8 @@ void HopperRobot::control_step(){
     } else if (state == BALANCING){
         if (feet_on_ground()) {
             float balance_torque = get_balance_torque(robot_state);
-            float yaw_torque = get_yaw_torque();
+            float margin_torque = abs(_max_current - abs(balance_torque));
+            float yaw_torque = constrain(get_yaw_torque(), -margin_torque, margin_torque);
             left_wheel_torque = balance_torque - yaw_torque;
             right_wheel_torque = balance_torque + yaw_torque;
         } else {
