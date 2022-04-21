@@ -8,7 +8,8 @@ void setup(){
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
   Serial.begin(115200);
-  while (!Serial) {}
+  // while (!Serial) {}
+  delay(8000);
   robot.homing_sequence();
   last_control_step = micros();
 }

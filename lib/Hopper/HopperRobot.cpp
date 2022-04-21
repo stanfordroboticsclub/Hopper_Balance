@@ -21,18 +21,18 @@ HopperRobot::~HopperRobot(){
 
 //Private Methods
 float HopperRobot::get_wheel_pos(){
-    float left_pos = bus.Get(kLeftWheelIdx).Position() - _wheel_offsets[kLeftWheelIdx];
-    float right_pos = bus.Get(kRightWheelIdx).Position() - _wheel_offsets[kRightWheelIdx];
+    float left_pos = kGearRatio * (bus.Get(kLeftWheelIdx).Position() - _wheel_offsets[kLeftWheelIdx]);
+    float right_pos = -kGearRatio * (bus.Get(kRightWheelIdx).Position() - _wheel_offsets[kRightWheelIdx]);
 
-    float output = 0.5 * (left_pos - right_pos) * kGearRatio;
+    float output = 0.5 * (left_pos + right_pos);
     return output;
 }
 
 float HopperRobot::get_wheel_vel(){
-    float left_vel = bus.Get(kLeftWheelIdx).Velocity() * kGearRatio;
-    float right_vel = bus.Get(kRightWheelIdx).Velocity() * kGearRatio;
+    float left_vel = kGearRatio * bus.Get(kLeftWheelIdx).Velocity();
+    float right_vel = -kGearRatio * bus.Get(kRightWheelIdx).Velocity();
 
-    float output = 0.5 * (left_vel - right_vel);
+    float output = 0.5 * (left_vel + right_vel);
     return output;
 }
 
@@ -42,14 +42,21 @@ float HopperRobot::get_extension_position(int legIndex){
     return motor_pos;
 }
 
-float HopperRobot::get_wheel_torque(float* robot_state){
+float HopperRobot::get_balance_torque(float* robot_state){
     float op_sum = 0;
-    int lqr_len = sizeof(_lqr_gains) / sizeof(float);
+    int lqr_len = sizeof(kLQRGains) / sizeof(float);
     
     for (int i = 0; i < lqr_len; i++)
-        op_sum += _lqr_gains[i] * robot_state[i];
+        op_sum += kLQRGains[i] * robot_state[i];
     
     return -op_sum;
+}
+
+float HopperRobot::get_yaw_torque() {
+    float left_pos = kGearRatio * (bus.Get(kLeftWheelIdx).Position() - _wheel_offsets[kLeftWheelIdx]);
+    float right_pos = -kGearRatio * (bus.Get(kRightWheelIdx).Position() - _wheel_offsets[kRightWheelIdx]);
+
+    return 0.5 * kKpYaw * (left_pos - right_pos);
 }
 
 float HopperRobot::get_impedence_command(int motor_idx, float desired_pos){
@@ -66,20 +73,22 @@ float HopperRobot::get_impedence_command(int motor_idx, float desired_pos){
     return command;
 }
 
-void HopperRobot::set_motor_comms(float left_leg_torque, float right_leg_torque, float wheel_torque){
+void HopperRobot::set_motor_comms(float left_leg_torque, float right_leg_torque, float left_wheel_torque, float right_wheel_torque){
     //Calculate and send motor commands based on a specified wheel torque
 
-    float wheel_amps = wheel_torque * kTorqueToAmps * kAmpsToMillis * kGearRatio;
-    wheel_amps = constrain(wheel_amps, -8000, 8000);
-    Serial.println(wheel_amps);
+    float left_wheel_amps = left_wheel_torque * kTorqueToAmps * kAmpsToMillis * kGearRatio;
+    left_wheel_amps = constrain(left_wheel_amps, -8000, 8000);
+    float right_wheel_amps = right_wheel_torque * kTorqueToAmps * kAmpsToMillis * kGearRatio;
+    right_wheel_amps = constrain(right_wheel_amps, -8000, 8000);
+    // Serial.println(wheel_amps);
 
     float motor_comm_arr[4];
   
     motor_comm_arr[kRightExtendIdx] = right_leg_torque;
     motor_comm_arr[kLeftExtendIdx] = left_leg_torque;
 
-    motor_comm_arr[kLeftWheelIdx] = wheel_amps;
-    motor_comm_arr[kRightWheelIdx] = -1.0 * wheel_amps;
+    motor_comm_arr[kLeftWheelIdx] = left_wheel_amps;
+    motor_comm_arr[kRightWheelIdx] = -1.0 * right_wheel_amps;
 
     // Serial.print(motor_comm_arr[0]);
     // Serial.print(" ");
@@ -256,13 +265,14 @@ void HopperRobot::control_step(){
     //     Serial.print(' ');
     // }
     // Serial.println();
-    float wheel_torque = 0;
+    float left_wheel_torque = 0;
+    float right_wheel_torque = 0;
 
     float right_leg_torque = get_impedence_command(kRightExtendIdx, -_height_pos * kLegDirections[kRightExtendIdx - kLegIdxs[0]]);
     float left_leg_torque = get_impedence_command(kLeftExtendIdx, -_height_pos * kLegDirections[kLeftExtendIdx - kLegIdxs[0]]);
 
-    _foot_on_ground[0] = left_leg_torque * kLegDirections[0] < -100;
-    _foot_on_ground[1] = right_leg_torque * kLegDirections[1] < -100;
+    _foot_on_ground[0] = left_leg_torque * kLegDirections[0] < -1000;
+    _foot_on_ground[1] = right_leg_torque * kLegDirections[1] < -1000;
 
     if (state == IDLE) {
         if (feet_on_ground()) {
@@ -270,13 +280,16 @@ void HopperRobot::control_step(){
         }
     } else if (state == BALANCING){
         if (feet_on_ground()) {
-            wheel_torque = get_wheel_torque(robot_state);
+            float balance_torque = get_balance_torque(robot_state);
+            float yaw_torque = get_yaw_torque();
+            left_wheel_torque = balance_torque - yaw_torque;
+            right_wheel_torque = balance_torque + yaw_torque;
         } else {
             transition_to_idle();
         }   
     }
 
-    set_motor_comms(left_leg_torque, right_leg_torque, wheel_torque);
+    set_motor_comms(left_leg_torque, right_leg_torque, left_wheel_torque, right_wheel_torque);
 }
 
 void HopperRobot::PollCAN() {
