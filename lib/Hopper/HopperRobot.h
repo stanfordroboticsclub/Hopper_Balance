@@ -9,6 +9,8 @@
 
 class HopperRobot {
     private:
+        int _state = IDLE;
+
         C610Bus<CAN1> bus;
         DFRobot_BMI160 bmi160;
         const int8_t kI2CAddr = 0x69;
@@ -20,7 +22,7 @@ class HopperRobot {
         const float kGyroFactor = 16.384;
         const float kDegToRadians = 3.14 / 180;
         const float kGearRatio = 36.0;
-        const float kPitchOffset = 0.1;
+        const float kPitchOffset = 0.0;
 
         const unsigned char kLeftWheelIdx = 0;
         const unsigned char kRightWheelIdx = 1;
@@ -28,7 +30,8 @@ class HopperRobot {
         const unsigned char kRightExtendIdx = 3;
 
         // Max current
-        float _max_current = 6000;
+        float _max_current = 8000;
+        float _max_torque = _max_current / kTorqueToAmps / kAmpsToMillis / kGearRatio;
 
         //Homing variables
         bool _homed_idxs[2] = {false, false};
@@ -57,12 +60,14 @@ class HopperRobot {
 
         float _left_wheel_pos, _right_wheel_pos, _left_wheel_vel, _right_wheel_vel;
 
+        bool _foot_on_ground[2] = {false, false};
+
         void get_imu_data();
         void read_wheel_sensors();
         float get_wheel_pos();
         float get_wheel_vel();
         float get_extension_position(int legIndex);
-        float get_balance_torque (float* imu_array);
+        float get_balance_torque (float robot_state[4], float des_state[4]);
         float get_yaw_torque();
         float get_impedence_command(int motor_idx, float desired_pos);
 
@@ -77,22 +82,19 @@ class HopperRobot {
 
     public:
 
-        int state = IDLE;
-
         float accel_gyro_values[6] = {0};
 
         //Impedence Gains for Leg Motors
         float _impedence_stiffness = 50000;
         float _impedence_damping = 1000;
 
-        bool _foot_on_ground[2] = {false, false};
-
         void test_impedence_hold(float position);
 
         void homing_sequence();
 
+        int get_state();
         float get_pitch(bool in_degrees);
-        void control_step();
+        void control_step(float des_state[4]);
         void PollCAN();
 
         HopperRobot();

@@ -44,14 +44,12 @@ float HopperRobot::get_extension_position(int legIndex){
     return motor_pos;
 }
 
-float HopperRobot::get_balance_torque(float* robot_state){
+float HopperRobot::get_balance_torque(float robot_state[4], float des_state[4]){
     float op_sum = 0;
-    int lqr_len = sizeof(kLQRGains) / sizeof(float);
+    for (int i = 0; i < 4; i++)
+        op_sum += kLQRGains[i] * (des_state[i] - robot_state[i]);
     
-    for (int i = 0; i < lqr_len; i++)
-        op_sum += kLQRGains[i] * robot_state[i];
-    
-    return -op_sum;
+    return op_sum;
 }
 
 float HopperRobot::get_yaw_torque() {
@@ -76,9 +74,9 @@ void HopperRobot::set_motor_comms(float left_leg_torque, float right_leg_torque,
     //Calculate and send motor commands based on a specified wheel torque
 
     float left_wheel_amps = left_wheel_torque * kTorqueToAmps * kAmpsToMillis * kGearRatio;
-    left_wheel_amps = constrain(left_wheel_amps, -8000, 8000);
+    left_wheel_amps = constrain(left_wheel_amps, -_max_current, _max_current);
     float right_wheel_amps = right_wheel_torque * kTorqueToAmps * kAmpsToMillis * kGearRatio;
-    right_wheel_amps = constrain(right_wheel_amps, -8000, 8000);
+    right_wheel_amps = constrain(right_wheel_amps, -_max_current, _max_current);
     // Serial.println(wheel_amps);
 
     float motor_comm_arr[4];
@@ -143,16 +141,20 @@ bool HopperRobot::feet_on_ground() {
 }
 
 void HopperRobot::transition_to_idle() {
-    state = IDLE;
+    _state = IDLE;
 }
 
 void HopperRobot::transition_to_balancing() {
-    state = BALANCING;
+    _state = BALANCING;
     _wheel_offsets[kLeftWheelIdx] = bus.Get(kLeftWheelIdx).Position();
     _wheel_offsets[kRightWheelIdx] = bus.Get(kRightWheelIdx).Position();
 }
 
 //Public Methods
+int HopperRobot::get_state() {
+    return _state;
+}
+
 void HopperRobot::homing_sequence(){
     bus.PollCAN();
     float des_pos[] = {get_extension_position(kLegIdxs[0]), get_extension_position(kLegIdxs[1])};
@@ -184,26 +186,9 @@ void HopperRobot::homing_sequence(){
                   }
 
                   homing_done = homing_done && _homed_idxs[i];
-
-                  // Serial.println("--------------");
-                  // Serial.print("Motor: ");
-                  // Serial.println(i);
-                  // Serial.print("current: ");
-                  // Serial.println(torq_command);
               }
             }
-
           if (homing_done) break;
-
-          // Serial.print(motor_torques[0]);
-          // Serial.print(" ");
-          // Serial.print(motor_torques[1]);
-          // Serial.println();
-
-          // Serial.print("dt: ");
-          // Serial.println(micros() - last_print);
-        //   last_print = micros();
-
           bus.CommandTorques(0, 0, 
                   motor_torques[0], motor_torques[1], C610Subbus::kOneToFourBlinks);
           last_command = micros();
@@ -249,7 +234,7 @@ float HopperRobot::filter(float signal) {
     return filtered;
 }
 
-void HopperRobot::control_step(){
+void HopperRobot::control_step(float des_state[4]){
     get_imu_data();
     complimentaryFilter();
     read_wheel_sensors();
@@ -259,7 +244,8 @@ void HopperRobot::control_step(){
     float wheel_pos = get_wheel_pos();
     float wheel_vel = get_wheel_vel();
     float radian_est = get_pitch(false);
-    float robot_state[4] = {radian_est + kPitchOffset, wheel_pos, filtered_angular_vel, wheel_vel};
+    float robot_state[4] = {radian_est, wheel_pos, filtered_angular_vel, wheel_vel};
+    // Serial.println(radian_est, 4);
     // for (int i = 0; i < 4; i++) {
     //     Serial.print(100.0 * robot_state[i]);
     //     Serial.print(' ');
@@ -274,14 +260,14 @@ void HopperRobot::control_step(){
     _foot_on_ground[0] = left_leg_torque * kLegDirections[0] < -1000;
     _foot_on_ground[1] = right_leg_torque * kLegDirections[1] < -1000;
 
-    if (state == IDLE) {
+    if (get_state() == IDLE) {
         if (feet_on_ground()) {
             transition_to_balancing();
         }
-    } else if (state == BALANCING){
+    } else if (get_state() == BALANCING){
         if (feet_on_ground()) {
-            float balance_torque = get_balance_torque(robot_state);
-            float margin_torque = abs(_max_current - abs(balance_torque));
+            float balance_torque = get_balance_torque(robot_state, des_state);
+            float margin_torque = max(0.75 * _max_torque - abs(balance_torque), 0);
             float yaw_torque = constrain(get_yaw_torque(), -margin_torque, margin_torque);
             left_wheel_torque = balance_torque - yaw_torque;
             right_wheel_torque = balance_torque + yaw_torque;
