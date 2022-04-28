@@ -8,7 +8,7 @@ HopperRobot robot;
 uint32_t last_control_step;
 float des_state[6] = {0, 0, 0, 0, 0, 0};
 float des_vel = 0;
-float des_yaw = 0;
+float des_yaw_rate = 0;
 const float max_vel = 10;
 
 void setup(){
@@ -25,11 +25,11 @@ void setup(){
 void loop(){
   if (Serial.available() > 0) {
     // des_vel = constrain(Serial.parseFloat(), -max_vel, max_vel);
-    des_yaw = constrain(Serial.parseFloat(), -max_vel, max_vel);
+    des_yaw_rate = constrain(Serial.parseFloat(), -max_vel, max_vel);
     Serial.read();
     // des_state[3] = des_vel;
-    des_state[4] = des_yaw;
-    Serial.println(des_yaw);
+    des_state[5] = des_yaw_rate;
+    Serial.println(des_yaw_rate);
   }
   robot.PollCAN();
   if(micros() - last_control_step > 2000) {
@@ -38,6 +38,7 @@ void loop(){
       des_state[4] = 0.0;
     } else {
       des_state[1] += des_vel / 500;
+      des_state[4] += des_yaw_rate / 500;
     }
     last_control_step = micros();
     robot.control_step(des_state);

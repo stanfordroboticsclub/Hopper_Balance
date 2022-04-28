@@ -62,8 +62,7 @@ float HopperRobot::get_balance_torque(float robot_state[4], float des_state[4]){
     return op_sum;
 }
 
-float HopperRobot::get_yaw_torque(float des_yaw) {
-    float des_yaw_rate = 0.0;
+float HopperRobot::get_yaw_torque(float des_yaw, float des_yaw_rate) {
     return kKpYaw * (des_yaw - get_yaw_angle()) + kKdYaw * (des_yaw_rate - get_yaw_rate());
 }
 
@@ -272,7 +271,7 @@ void HopperRobot::control_step(float des_state[6]){
         if (feet_on_ground()) {
             float balance_torque = get_balance_torque(robot_state, des_state);
             float margin_torque = max(0.75 * _max_torque - abs(balance_torque), 0);
-            float yaw_torque = constrain(get_yaw_torque(des_state[4]), -margin_torque, margin_torque);
+            float yaw_torque = constrain(get_yaw_torque(des_state[4], des_state[5]), -margin_torque, margin_torque);
             left_wheel_torque = balance_torque + yaw_torque;
             right_wheel_torque = balance_torque - yaw_torque;
         } else {
