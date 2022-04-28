@@ -38,6 +38,16 @@ float HopperRobot::get_wheel_vel(){
     return output;
 }
 
+float HopperRobot::get_yaw_angle(){
+    float output = kWheelRadius / kWheelSpacing * (_left_wheel_pos - _right_wheel_pos);
+    return output;
+}
+
+float HopperRobot::get_yaw_rate(){
+    float output = kWheelRadius / kWheelSpacing * (_left_wheel_vel - _right_wheel_vel);
+    return output;
+}
+
 float HopperRobot::get_extension_position(int legIndex){
     C610 esc = bus.Get(legIndex);
     float motor_pos = esc.Position();
@@ -52,8 +62,9 @@ float HopperRobot::get_balance_torque(float robot_state[4], float des_state[4]){
     return op_sum;
 }
 
-float HopperRobot::get_yaw_torque() {
-    return kKpYaw * 0.5 * (_left_wheel_pos - _right_wheel_pos) + kKdYaw * 0.5 * (_left_wheel_vel - _right_wheel_vel);
+float HopperRobot::get_yaw_torque(float des_yaw) {
+    float des_yaw_rate = 0.0;
+    return kKpYaw * (des_yaw - get_yaw_angle()) + kKdYaw * (des_yaw_rate - get_yaw_rate());
 }
 
 float HopperRobot::get_impedence_command(int motor_idx, float desired_pos){
@@ -227,7 +238,7 @@ float HopperRobot::filter(float signal) {
     return filtered;
 }
 
-void HopperRobot::control_step(float des_state[4]){
+void HopperRobot::control_step(float des_state[6]){
     get_imu_data();
     complimentaryFilter();
     read_wheel_sensors();
@@ -261,9 +272,9 @@ void HopperRobot::control_step(float des_state[4]){
         if (feet_on_ground()) {
             float balance_torque = get_balance_torque(robot_state, des_state);
             float margin_torque = max(0.75 * _max_torque - abs(balance_torque), 0);
-            float yaw_torque = constrain(get_yaw_torque(), -margin_torque, margin_torque);
-            left_wheel_torque = balance_torque - yaw_torque;
-            right_wheel_torque = balance_torque + yaw_torque;
+            float yaw_torque = constrain(get_yaw_torque(des_state[4]), -margin_torque, margin_torque);
+            left_wheel_torque = balance_torque + yaw_torque;
+            right_wheel_torque = balance_torque - yaw_torque;
         } else {
             transition_to_idle();
         }   

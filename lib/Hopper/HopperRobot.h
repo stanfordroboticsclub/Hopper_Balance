@@ -24,6 +24,9 @@ class HopperRobot {
         const float kGearRatio = 36.0;
         const float kPitchOffset = 0.0;
 
+        const float kWheelSpacing = 0.18;
+        const float kWheelRadius = 0.028;
+
         const unsigned char kLeftWheelIdx = 0;
         const unsigned char kRightWheelIdx = 1;
         const unsigned char kLeftExtendIdx = 2;
@@ -66,9 +69,11 @@ class HopperRobot {
         void read_wheel_sensors();
         float get_wheel_pos();
         float get_wheel_vel();
+        float get_yaw_angle();
+        float get_yaw_rate();
         float get_extension_position(int legIndex);
         float get_balance_torque (float robot_state[4], float des_state[4]);
-        float get_yaw_torque();
+        float get_yaw_torque(float des_yaw);
         float get_impedence_command(int motor_idx, float desired_pos);
 
         void set_motor_comms(float left_leg_torque, float right_leg_torque, float left_wheel_torque, float right_wheel_torque);
