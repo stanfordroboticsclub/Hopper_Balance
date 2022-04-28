@@ -21,11 +21,11 @@ HopperRobot::~HopperRobot(){
 
 //Private Methods
 void HopperRobot::read_wheel_sensors() {
-    _left_wheel_pos = kGearRatio * (bus.Get(kLeftWheelIdx).Position() - _wheel_offsets[kLeftWheelIdx]);
-    _right_wheel_pos = -kGearRatio * (bus.Get(kRightWheelIdx).Position() - _wheel_offsets[kRightWheelIdx]);
+    _left_wheel_pos = -kGearRatio * (bus.Get(kLeftWheelIdx).Position() - _wheel_offsets[kLeftWheelIdx]);
+    _right_wheel_pos = kGearRatio * (bus.Get(kRightWheelIdx).Position() - _wheel_offsets[kRightWheelIdx]);
 
-    _left_wheel_vel = kGearRatio * bus.Get(kLeftWheelIdx).Velocity();
-    _right_wheel_vel = -kGearRatio * bus.Get(kRightWheelIdx).Velocity();
+    _left_wheel_vel = -kGearRatio * bus.Get(kLeftWheelIdx).Velocity();
+    _right_wheel_vel = kGearRatio * bus.Get(kRightWheelIdx).Velocity();
 }
 
 float HopperRobot::get_wheel_pos(){
@@ -84,8 +84,8 @@ void HopperRobot::set_motor_comms(float left_leg_torque, float right_leg_torque,
     motor_comm_arr[kRightExtendIdx] = right_leg_torque;
     motor_comm_arr[kLeftExtendIdx] = left_leg_torque;
 
-    motor_comm_arr[kLeftWheelIdx] = left_wheel_amps;
-    motor_comm_arr[kRightWheelIdx] = -1.0 * right_wheel_amps;
+    motor_comm_arr[kLeftWheelIdx] = -left_wheel_amps;
+    motor_comm_arr[kRightWheelIdx] = right_wheel_amps;
 
     // Serial.print(motor_comm_arr[0]);
     // Serial.print(" ");
@@ -101,21 +101,14 @@ void HopperRobot::set_motor_comms(float left_leg_torque, float right_leg_torque,
 }
 
 float HopperRobot::complimentaryFilter(){
-    float y_gyro = accel_gyro_values[1] * _dt;
-    float accel_angle = -atan2(accel_gyro_values[5], -accel_gyro_values[3]) * (180 / 3.14);
+    float y_gyro = -accel_gyro_values[1] * _dt;
+    float accel_angle = atan2(accel_gyro_values[5], -accel_gyro_values[3]) * (180 / 3.14);
 
     float alpha = 0.99;
 
     float new_angle = alpha * (_pitch_angle + y_gyro) + (1.0 - alpha) * (accel_angle);
 
-    /*
-    Serial.print("accel_pitch: ");
-    Serial.println(accel_angle);
-    */
-
     _pitch_angle = new_angle;
-    //Serial.println(_pitch_angle);
-
     return new_angle;
 }
 
@@ -239,7 +232,7 @@ void HopperRobot::control_step(float des_state[4]){
     complimentaryFilter();
     read_wheel_sensors();
 
-    float angular_vel = accel_gyro_values[1] * kDegToRadians;
+    float angular_vel = -accel_gyro_values[1] * kDegToRadians;
     float filtered_angular_vel = filter(angular_vel);
     float wheel_pos = get_wheel_pos();
     float wheel_vel = get_wheel_vel();
