@@ -12,11 +12,10 @@ ANGULAR_VELOCITY_SCALE = 10.0
 BAUDRATE = 115200
 
 class SerialSender:
-    def __init__(self, port, baudrate, start='H ', verbose=False):
+    def __init__(self, port, baudrate, start='H'):
         self.port = port
         self.baudrate = baudrate
-        self.start = start
-        self.verbose = verbose
+        self.start = bytes(start, 'ascii')
 
         self.ser = serial.Serial(port, baudrate)
         
@@ -60,7 +59,7 @@ class JoystickInterface:
 if __name__ == "__main__":
     
     try: 
-        port = next(list_ports.grep(".*usbmodem.*"))
+        port = next(list_ports.grep(".*usb.*"))
     except:
         try:
             port = next(list_ports.grep(".*tty.*"))
@@ -73,6 +72,6 @@ if __name__ == "__main__":
     while True:
         lin, ang = joy.get_command()
         ser.send(lin, ang)
-        print(ser.read_byte())
-        print(ser.read_float())
-        print(ser.read_float())
+        # print(ser.read_byte())
+        # print(ser.read_float())
+        # print(ser.read_float())
