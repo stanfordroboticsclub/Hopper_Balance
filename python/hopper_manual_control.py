@@ -6,10 +6,11 @@ import hid
 import serial
 from serial.tools import list_ports
 
-LINEAR_VELOCITY_SCALE = 10.0
-ANGULAR_VELOCITY_SCALE = 10.0
+LINEAR_VELOCITY_SCALE = 40.0
+ANGULAR_VELOCITY_SCALE = 3.0
 
 BAUDRATE = 115200
+COMMAND_RATE = 20
 
 class SerialSender:
     def __init__(self, port, baudrate, start='H'):
@@ -48,18 +49,19 @@ class JoystickInterface:
         self.gamepad.set_nonblocking(True)
 
     def get_command(self):
-        report = self.gamepad.read(64)
-        if report:
-            event = [r - 256 if r > 127 else r for r in report]
-            command_linear_vel = LINEAR_VELOCITY_SCALE * event[4] / 127
-            command_angular_vel = ANGULAR_VELOCITY_SCALE * event[6] / 127
-            return command_linear_vel, command_angular_vel
+        report = None
+        while not report:
+            report = self.gamepad.read(64)
+        event = [r - 256 if r > 127 else r for r in report]
+        command_linear_vel = LINEAR_VELOCITY_SCALE * event[4] / 127
+        command_angular_vel = ANGULAR_VELOCITY_SCALE * event[6] / 127
+        return command_linear_vel, command_angular_vel
 
 
 if __name__ == "__main__":
     
     try: 
-        port = next(list_ports.grep(".*usb.*"))
+        port = next(list_ports.grep(".*usb*"))
     except:
         try:
             port = next(list_ports.grep(".*tty.*"))
@@ -70,6 +72,7 @@ if __name__ == "__main__":
     joy = JoystickInterface()
 
     while True:
+        time.sleep(1 / COMMAND_RATE)
         lin, ang = joy.get_command()
         ser.send(lin, ang)
         # print(ser.read_byte())
