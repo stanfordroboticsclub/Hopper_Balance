@@ -8,6 +8,8 @@ from serial.tools import list_ports
 
 LINEAR_VELOCITY_SCALE = 40.0
 ANGULAR_VELOCITY_SCALE = 3.0
+MAX_LINEAR_ACCEL = 40.0
+MAX_ANGULAR_ACCEL = 3.0
 
 BAUDRATE = 115200
 COMMAND_RATE = 20
@@ -43,6 +45,7 @@ class JoystickInterface:
     def __init__(self):
         self.gamepad = hid.device()
         for device in hid.enumerate():
+            # print(device)
             if (device['product_string'] == 'FrSky Simulator') or (device['product_string'] == 'BetaFPV Taranis Joystick') or (device["vendor_id"] == 1155):
                 self.gamepad.open(device['vendor_id'], device['product_id'])
                 break
@@ -71,10 +74,23 @@ if __name__ == "__main__":
     ser = SerialSender(port.device, BAUDRATE)
     joy = JoystickInterface()
 
-    while True:
-        time.sleep(1 / COMMAND_RATE)
-        lin, ang = joy.get_command()
-        ser.send(lin, ang)
-        # print(ser.read_byte())
-        # print(ser.read_float())
-        # print(ser.read_float())
+    lin = 0
+    ang = 0
+
+    try:
+        while True:
+            time.sleep(1 / COMMAND_RATE)
+            joy_lin, joy_ang = joy.get_command()
+            if joy_lin - lin > 0:
+                lin = min(joy_lin, lin + MAX_LINEAR_ACCEL / COMMAND_RATE)
+            else:
+                lin = max(joy_lin, lin - MAX_LINEAR_ACCEL / COMMAND_RATE)
+
+            ang = joy_ang
+            # print(lin, ang)
+            ser.send(lin, ang)
+            # print(ser.read_byte())
+            # print(ser.read_float())
+            # print(ser.read_float())
+    finally:
+        ser.send(0, 0)
