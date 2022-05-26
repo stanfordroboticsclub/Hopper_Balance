@@ -237,7 +237,7 @@ float HopperRobot::filter(float signal) {
     return filtered;
 }
 
-void HopperRobot::control_step(float des_state[6]){
+void HopperRobot::control_step(float des_state[8]){
     get_imu_data();
     complimentaryFilter();
     read_wheel_sensors();
@@ -248,20 +248,17 @@ void HopperRobot::control_step(float des_state[6]){
     float wheel_vel = get_wheel_vel();
     float radian_est = get_pitch(false);
     float robot_state[4] = {radian_est, wheel_pos, filtered_angular_vel, wheel_vel};
-    // Serial.println(radian_est, 4);
-    // for (int i = 0; i < 4; i++) {
-    //     Serial.print(100.0 * robot_state[i]);
-    //     Serial.print(' ');
-    // }
-    // Serial.println();
+
     float left_wheel_torque = 0;
     float right_wheel_torque = 0;
 
-    float right_leg_torque = get_impedence_command(kRightExtendIdx, -_height_pos * kLegDirections[kRightExtendIdx - kLegIdxs[0]]);
-    float left_leg_torque = get_impedence_command(kLeftExtendIdx, -_height_pos * kLegDirections[kLeftExtendIdx - kLegIdxs[0]]);
+    _left_leg_height = des_state[6];
+    _right_leg_height = des_state[7];
+    float right_leg_torque = get_impedence_command(kRightExtendIdx, -_right_leg_height * kLegDirections[kRightExtendIdx - kLegIdxs[0]]);
+    float left_leg_torque = get_impedence_command(kLeftExtendIdx, -_left_leg_height * kLegDirections[kLeftExtendIdx - kLegIdxs[0]]);
 
-    _foot_on_ground[0] = left_leg_torque * kLegDirections[0] < -1000;
-    _foot_on_ground[1] = right_leg_torque * kLegDirections[1] < -1000;
+    _foot_on_ground[0] = left_leg_torque * kLegDirections[0] < -800;
+    _foot_on_ground[1] = right_leg_torque * kLegDirections[1] < -800;
 
     if (get_state() == IDLE) {
         if (feet_on_ground()) {

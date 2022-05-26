@@ -48,7 +48,8 @@ class HopperRobot {
         const float kHomingVelocity = 0.0015;
         const float kHomingCurrentThreshold = 5000;
 
-        float _height_pos = 0.6;
+        float _left_leg_height = 0.6;
+        float _right_leg_height = 0.6;
 
         unsigned long _prev_sensor_time;
         float _dt; //The time difference between the current measurement and the previous one in seconds
@@ -99,7 +100,7 @@ class HopperRobot {
 
         int get_state();
         float get_pitch(bool in_degrees);
-        void control_step(float des_state[4]);
+        void control_step(float des_state[8]);
         void PollCAN();
 
         HopperRobot();
